@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Source Connections</h2>
+<form method="post" action="/sources">
+  <input name="name" placeholder="name" required/>
+  <select name="connector_type">
+    <option>ArcGISSurvey123</option>
+    <option>ArcGISFeatureService</option>
+    <option>SQLReadOnly</option>
+    <option>GenericREST</option>
+  </select>
+  <input name="endpoint" placeholder="endpoint/feature url"/>
+  <input name="cadence_minutes" type="number" value="60"/>
+  <label>Mock <input type="checkbox" name="mock_mode" checked /></label>
+  <button>Add</button>
+</form>
+<table>
+<tr><th>Name</th><th>Type</th><th>Actions</th></tr>
+{% for s in sources %}
+<tr>
+<td>{{s.name}}</td><td>{{s.connector_type}}</td>
+<td>
+<form method="post" action="/sources/{{s.id}}/sync" style="display:inline"><button>Sync Now</button></form>
+<form method="post" action="/sources/{{s.id}}/test" style="display:inline"><button>Test</button></form>
+</td>
+</tr>
+{% endfor %}
+</table>
+<h3>Field Mappings</h3>
+{% for s in sources %}
+<form method="post" action="/sources/{{s.id}}/mappings">
+<b>{{s.name}}</b> <input name="entity_name" placeholder="entity e.g. assets" required/> <input name="source_field" placeholder="source field" required/> <input name="target_field" placeholder="target field" required/> <button>Add Mapping</button>
+</form>
+{% endfor %}
+<ul>{% for m in mappings %}<li>Source {{m.source_system_id}} {{m.entity_name}}: {{m.source_field}} -> {{m.target_field}}</li>{% endfor %}</ul>
+<p>Unmapped fields are shown by comparing connector schema fields to mapped source fields during connector onboarding.</p>
+<h3>Sync Logs</h3>
+<ul>{% for l in logs %}<li>{{l.started_at}} {{l.status}} records={{l.record_count}} err={{l.error_text}}</li>{% endfor %}</ul>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Roadmap</h2>
+<form method="get">
+<select name="scenario_id">
+{% for s in scenarios %}
+<option value="{{s.id}}" {% if selected_scenario and s.id==selected_scenario.id %}selected{% endif %}>{{s.name}}</option>
+{% endfor %}
+</select>
+<button type="submit">Apply Scenario</button>
+</form>
+<h3>Selected Projects</h3>
+<ul>
+{% for p in output.selected %}
+<li>{{p.name}} - score {{p.score}} - cost {{p.total_cost}}</li>
+{% endfor %}
+</ul>
+<h3>Annual Totals</h3>
+<ul>{% for year, total in output.annual_cost.items() %}<li>{{year}}: {{total}}</li>{% endfor %}</ul>
+{% endblock %}

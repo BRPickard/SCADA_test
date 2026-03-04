@@ -1,0 +1,32 @@
+[
+  {
+    "objectid": 101,
+    "asset_type": "PLC",
+    "make": "Schneider",
+    "model": "M580",
+    "serial": "ABC123",
+    "status": "active",
+    "condition_score": 62,
+    "cyber_notes": "Legacy firmware",
+    "network_notes": "Cellular fallback",
+    "lat": 39.099,
+    "lon": -94.578,
+    "site_name": "Pump Station A",
+    "edit_date": "2026-01-15T10:00:00"
+  },
+  {
+    "objectid": 102,
+    "asset_type": "RTU",
+    "make": "Emerson",
+    "model": "RX3i",
+    "serial": "XYZ456",
+    "status": "active",
+    "condition_score": 77,
+    "cyber_notes": "",
+    "network_notes": "Fiber",
+    "lat": 38.627,
+    "lon": -90.199,
+    "site_name": "Lift Station B",
+    "edit_date": "2026-01-16T09:00:00"
+  }
+]

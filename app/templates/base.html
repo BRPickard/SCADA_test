@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+  <title>SCADA Master Plan</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<nav>
+  <a href="/">Dashboard</a> |
+  <a href="/assets">Asset Registry</a> |
+  <a href="/projects">Project Portfolio</a> |
+  <a href="/scenarios">Scenario Builder</a> |
+  <a href="/roadmap">Roadmap</a> |
+  <a href="/sources">Source Connections</a> |
+  <a href="/admin">Admin</a>
+</nav>
+<hr />
+{% block content %}{% endblock %}
+</body>
+</html>

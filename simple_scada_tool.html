@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dynamic SCADA Master Plan Tool (Single File Demo)</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    h1 { margin-bottom: 8px; }
+    nav { display:flex; flex-wrap:wrap; gap:8px; margin: 10px 0 16px; }
+    nav button { padding: 6px 10px; cursor:pointer; }
+    .view { display:none; }
+    .view.active { display:block; }
+    .card-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin:12px 0; }
+    .card { border:1px solid #ccc; border-radius:8px; padding:10px; }
+    table { width:100%; border-collapse: collapse; margin-top:8px; }
+    th, td { border:1px solid #ddd; padding:6px; text-align:left; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .muted { color:#666; font-size: 13px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef; }
+    input, select { padding:4px 6px; }
+    .good { color:#0a7a2a; } .warn { color:#ad7300; } .bad { color:#a40000; }
+    .map { border:1px solid #ccc; border-radius:8px; height:240px; position:relative; background:linear-gradient(#f2f7ff,#f7fbff); overflow:hidden; }
+    .dot { position:absolute; width:10px; height:10px; border-radius:50%; background:#185abd; transform: translate(-50%, -50%); }
+    .dot:hover::after { content: attr(data-name); position:absolute; left:12px; top:-4px; background:#fff; border:1px solid #ccc; padding:2px 5px; white-space:nowrap; }
+    .section { margin: 12px 0 18px; }
+  </style>
+</head>
+<body>
+  <h1>Dynamic SCADA Master Plan Tool</h1>
+  <div class="muted">Single-file local demo (planning-only, no control-system write-back).</div>
+
+  <nav id="tabs"></nav>
+
+  <section id="dashboard" class="view active"></section>
+  <section id="assets" class="view"></section>
+  <section id="projects" class="view"></section>
+  <section id="scenarios" class="view"></section>
+  <section id="roadmap" class="view"></section>
+  <section id="sources" class="view"></section>
+
+<script>
+const state = {
+  role: 'Executive',
+  assetWeights: { condition: 0.45, cyber: 0.30, criticality: 0.25 },
+  projectWeights: { risk_reduction: 0.35, cost: 0.2, urgency: 0.2, readiness: 0.15, resource_feasibility: 0.1 },
+  assets: [
+    { id: 1, site: 'Pump Station A', asset_type: 'PLC', make: 'Schneider', model: 'M580', condition_score: 62, cyber_notes: 'Legacy firmware', status: 'active', lat: 39.099, lon: -94.578 },
+    { id: 2, site: 'Lift Station B', asset_type: 'RTU', make: 'Emerson', model: 'RX3i', condition_score: 77, cyber_notes: '', status: 'active', lat: 38.627, lon: -90.199 },
+    { id: 3, site: 'Plant C', asset_type: 'HMI', make: 'Siemens', model: 'Comfort', condition_score: 55, cyber_notes: 'No MFA', status: 'active', lat: 41.878, lon: -87.629 }
+  ],
+  projects: [
+    { id: 11, name: 'PLC Firmware Modernization', total_cost: 320000, resource_internal_fte: 3, resource_external_fte: 1, dependencies: '', year: '2026', risk_impact: 5, risk_likelihood: 4, urgency: 8 },
+    { id: 12, name: 'Network Segmentation Upgrade', total_cost: 410000, resource_internal_fte: 4, resource_external_fte: 2, dependencies: '11', year: '2026', risk_impact: 4, risk_likelihood: 4, urgency: 7 },
+    { id: 13, name: 'RTU Spares Standardization', total_cost: 150000, resource_internal_fte: 2, resource_external_fte: 0, dependencies: '', year: '2027', risk_impact: 3, risk_likelihood: 4, urgency: 6 }
+  ],
+  scenarios: [
+    { id: 1, name: 'good', settings: { budget_caps: { '2026': 500000, '2027': 250000 }, staffing_caps: { '2026': 7, '2027': 4 }, must_do: [], defer: [] } },
+    { id: 2, name: 'better', settings: { budget_caps: { '2026': 800000, '2027': 350000 }, staffing_caps: { '2026': 10, '2027': 6 }, must_do: [], defer: [] } },
+    { id: 3, name: 'best', settings: { budget_caps: { '2026': 1200000, '2027': 600000 }, staffing_caps: { '2026': 14, '2027': 8 }, must_do: [], defer: [] } }
+  ],
+  selectedScenarioId: 1,
+  sourceConnections: [
+    { id: 1, name: 'Survey123 Assets', type: 'ArcGISSurvey123', endpoint: 'mock://fixtures/survey123_assets', cadence: 60, status: 'ready' }
+  ],
+  sourceMappings: [
+    { sourceId: 1, entity: 'assets', sourceField: 'asset_type', targetField: 'asset_type' },
+    { sourceId: 1, entity: 'assets', sourceField: 'condition_score', targetField: 'condition_score' }
+  ],
+  syncLogs: []
+};
+
+function assetRiskScore(a) {
+  const w = state.assetWeights;
+  const condition = Math.max(0, 100 - Number(a.condition_score || 50));
+  const cyber = a.cyber_notes ? 100 : 20;
+  const criticality = (a.asset_type || '').includes('PLC') ? 80 : 50;
+  return +(condition*w.condition + cyber*w.cyber + criticality*w.criticality).toFixed(2);
+}
+function projectScore(p) {
+  const w = state.projectWeights;
+  const riskReduction = Number(p.risk_impact||1)*Number(p.risk_likelihood||1)*10;
+  const costPenalty = Math.max(1, Number(p.total_cost||1)/100000);
+  const urgency = Number(p.urgency||5)*10;
+  const readiness = p.dependencies ? 65 : 100;
+  const res = Math.max(0, 100 - (Number(p.resource_internal_fte||0)+Number(p.resource_external_fte||0))*10);
+  return +(riskReduction*w.risk_reduction + (100-costPenalty)*w.cost + urgency*w.urgency + readiness*w.readiness + res*w.resource_feasibility).toFixed(2);
+}
+function runScenario(projects, settings) {
+  const ranked = [...projects].sort((a,b)=>projectScore(b)-projectScore(a));
+  const annualCost = {}, annualStaff = {}, selected = [];
+  for (const p of ranked) {
+    const y = String(p.year || '2026');
+    const cost = Number(p.total_cost||0), staff = Number(p.resource_internal_fte||0);
+    const capCost = Number((settings.budget_caps||{})[y] ?? Number.MAX_SAFE_INTEGER);
+    const capStaff = Number((settings.staffing_caps||{})[y] ?? Number.MAX_SAFE_INTEGER);
+    const c = annualCost[y] || 0, s = annualStaff[y] || 0;
+    const must = (settings.must_do||[]).includes(String(p.id));
+    const defer = (settings.defer||[]).includes(String(p.id));
+    if (defer) continue;
+    if (must || (c + cost <= capCost && s + staff <= capStaff)) {
+      selected.push({ ...p, score: projectScore(p) });
+      annualCost[y] = c + cost; annualStaff[y] = s + staff;
+    }
+  }
+  return { selected, annualCost, annualStaff };
+}
+
+function show(viewId){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+}
+
+function buildTabs(){
+  const tabs = ['dashboard','assets','projects','scenarios','roadmap','sources'];
+  document.getElementById('tabs').innerHTML = tabs.map(t=>`<button onclick="show('${t}')">${t[0].toUpperCase()+t.slice(1)}</button>`).join('');
+}
+
+function renderDashboard(){
+  const el = document.getElementById('dashboard');
+  const avgRisk = (state.assets.reduce((s,a)=>s+assetRiskScore(a),0)/state.assets.length).toFixed(1);
+  const running = state.syncLogs.filter(l=>l.status==='success').length;
+  el.innerHTML = `
+    <div class="row"><label>Role
+      <select id="roleSel"><option>Executive</option><option>Engineer</option><option>Operator</option><option>Admin</option></select>
+    </label><span class="pill">Current: ${state.role}</span></div>
+    <div class="card-grid">
+      <div class="card"><b>Assets</b><div>${state.assets.length}</div></div>
+      <div class="card"><b>Projects</b><div>${state.projects.length}</div></div>
+      <div class="card"><b>Average Asset Risk</b><div>${avgRisk}</div></div>
+      <div class="card"><b>Successful Sync Runs</b><div>${running}</div></div>
+    </div>`;
+  el.querySelector('#roleSel').value = state.role;
+  el.querySelector('#roleSel').onchange = e=>{ state.role=e.target.value; renderDashboard(); };
+}
+
+function renderAssets(){
+  const el = document.getElementById('assets');
+  const rows = state.assets.map(a=>`<tr><td>${a.id}</td><td>${a.site}</td><td>${a.asset_type}</td><td>${a.condition_score}</td><td>${assetRiskScore(a)}</td></tr>`).join('');
+  el.innerHTML = `
+    <div class="section row">
+      <label>Search <input id="assetSearch" placeholder="type/site" /></label>
+      <label>Condition weight <input id="w1" type="number" step="0.05" value="${state.assetWeights.condition}" /></label>
+      <label>Cyber weight <input id="w2" type="number" step="0.05" value="${state.assetWeights.cyber}" /></label>
+      <label>Criticality weight <input id="w3" type="number" step="0.05" value="${state.assetWeights.criticality}" /></label>
+      <button id="applyW">Apply weights</button>
+    </div>
+    <table><thead><tr><th>ID</th><th>Site</th><th>Type</th><th>Condition</th><th>Risk</th></tr></thead><tbody id="assetBody">${rows}</tbody></table>
+    <h3>Simple Geospatial Context</h3>
+    <div class="map" id="miniMap"></div>
+    <div class="muted">Map is a lightweight local coordinate projection so this file runs without any server or external JS libs.</div>
+  `;
+  document.getElementById('applyW').onclick = ()=>{
+    state.assetWeights.condition = Number(document.getElementById('w1').value);
+    state.assetWeights.cyber = Number(document.getElementById('w2').value);
+    state.assetWeights.criticality = Number(document.getElementById('w3').value);
+    renderAssets(); renderDashboard();
+  };
+  document.getElementById('assetSearch').oninput = (e)=>{
+    const q = e.target.value.toLowerCase();
+    const body = document.getElementById('assetBody');
+    body.innerHTML = state.assets.filter(a => `${a.site} ${a.asset_type}`.toLowerCase().includes(q))
+      .map(a=>`<tr><td>${a.id}</td><td>${a.site}</td><td>${a.asset_type}</td><td>${a.condition_score}</td><td>${assetRiskScore(a)}</td></tr>`).join('');
+  };
+  const map = document.getElementById('miniMap');
+  const lats = state.assets.map(a=>a.lat), lons = state.assets.map(a=>a.lon);
+  const minLat = Math.min(...lats)-1, maxLat = Math.max(...lats)+1, minLon = Math.min(...lons)-1, maxLon = Math.max(...lons)+1;
+  state.assets.forEach(a=>{
+    const x = ((a.lon-minLon)/(maxLon-minLon))*100;
+    const y = (1 - (a.lat-minLat)/(maxLat-minLat))*100;
+    const d = document.createElement('div');
+    d.className='dot'; d.style.left=`${x}%`; d.style.top=`${y}%`; d.dataset.name=`${a.site} (${a.asset_type})`;
+    map.appendChild(d);
+  });
+}
+
+function renderProjects(){
+  const el = document.getElementById('projects');
+  const rows = [...state.projects].sort((a,b)=>projectScore(b)-projectScore(a))
+    .map(p=>`<tr><td>${p.id}</td><td>${p.name}</td><td>$${p.total_cost.toLocaleString()}</td><td>${p.dependencies||'-'}</td><td>${projectScore(p)}</td></tr>`).join('');
+  el.innerHTML = `<h3>Project Portfolio</h3><table><tr><th>ID</th><th>Name</th><th>Cost</th><th>Dependencies</th><th>Computed Score</th></tr>${rows}</table>`;
+}
+
+function renderScenarios(){
+  const el = document.getElementById('scenarios');
+  const opts = state.scenarios.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const comparison = state.scenarios.map(s=>{
+    const out = runScenario(state.projects, s.settings);
+    const cost = Object.values(out.annualCost).reduce((a,b)=>a+b,0);
+    return `<tr><td>${s.name}</td><td>${out.selected.length}</td><td>$${cost.toLocaleString()}</td></tr>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="row">
+      <label>Base scenario <select id="scSel">${opts}</select></label>
+      <label>Budget cap 2026 <input id="bcap" type="number" value="500000" /></label>
+      <label>Staff cap 2026 <input id="scap" type="number" value="8" /></label>
+      <button id="mkCustom">Create Custom Scenario</button>
+    </div>
+    <table><tr><th>Scenario</th><th>Selected Projects</th><th>Total Planned Cost</th></tr>${comparison}</table>
+  `;
+  document.getElementById('scSel').value = state.selectedScenarioId;
+  document.getElementById('scSel').onchange = (e)=>{ state.selectedScenarioId = Number(e.target.value); renderRoadmap(); };
+  document.getElementById('mkCustom').onclick = ()=>{
+    const id = Date.now();
+    state.scenarios.push({ id, name: `custom-${id.toString().slice(-4)}`, settings: { budget_caps:{'2026':Number(document.getElementById('bcap').value)}, staffing_caps:{'2026':Number(document.getElementById('scap').value)}, must_do:[], defer:[] } });
+    state.selectedScenarioId = id;
+    renderScenarios(); renderRoadmap();
+  };
+}
+
+function renderRoadmap(){
+  const el = document.getElementById('roadmap');
+  const scenario = state.scenarios.find(s=>s.id===state.selectedScenarioId) || state.scenarios[0];
+  const out = runScenario(state.projects, scenario.settings);
+  const list = out.selected.map(p=>`<li>${p.year} — ${p.name} (score ${p.score}, cost $${p.total_cost.toLocaleString()}) ${p.dependencies?`[depends: ${p.dependencies}]`:''}</li>`).join('');
+  const totals = Object.entries(out.annualCost).map(([y,c])=>`<li>${y}: $${c.toLocaleString()}</li>`).join('');
+  el.innerHTML = `<h3>Roadmap (${scenario.name})</h3><ul>${list || '<li>No projects selected</li>'}</ul><h4>Annual Totals</h4><ul>${totals || '<li>None</li>'}</ul>`;
+}
+
+function renderSources(){
+  const el = document.getElementById('sources');
+  const rows = state.sourceConnections.map(s=>`<tr><td>${s.name}</td><td>${s.type}</td><td>${s.endpoint}</td><td>${s.cadence}m</td><td>${s.status}</td><td><button onclick="testConn(${s.id})">Test</button> <button onclick="syncNow(${s.id})">Sync Now</button></td></tr>`).join('');
+  const maps = state.sourceMappings.map(m=>`<li>Source ${m.sourceId} ${m.entity}: ${m.sourceField} → ${m.targetField}</li>`).join('');
+  const logs = state.syncLogs.slice().reverse().map(l=>`<li>${l.when} | source ${l.sourceId} | ${l.status} | duration ${l.ms}ms | records ${l.records} ${l.error?`| ${l.error}`:''}</li>`).join('');
+  el.innerHTML = `
+    <div class="row">
+      <input id="sName" placeholder="Source name" />
+      <select id="sType"><option>ArcGISSurvey123</option><option>ArcGISFeatureService</option><option>SQLReadOnly</option><option>GenericREST</option></select>
+      <input id="sEndpoint" placeholder="endpoint" />
+      <input id="sCadence" type="number" value="60" />
+      <button id="addSrc">Add Source</button>
+    </div>
+    <table><tr><th>Name</th><th>Type</th><th>Endpoint</th><th>Cadence</th><th>Status</th><th>Actions</th></tr>${rows}</table>
+    <h4>Field Mappings</h4>
+    <div class="row">
+      <input id="mSid" type="number" placeholder="source id" />
+      <input id="mEntity" placeholder="entity (assets/projects)" />
+      <input id="mSrc" placeholder="source field" />
+      <input id="mTgt" placeholder="target field" />
+      <button id="addMap">Add Mapping</button>
+    </div>
+    <ul>${maps || '<li>No mappings</li>'}</ul>
+    <h4>Sync Logs</h4><ul>${logs || '<li>No sync runs yet</li>'}</ul>
+  `;
+  document.getElementById('addSrc').onclick = ()=>{
+    const id = (state.sourceConnections.at(-1)?.id || 0)+1;
+    state.sourceConnections.push({ id, name: sName.value || `Source ${id}`, type: sType.value, endpoint: sEndpoint.value || 'mock://', cadence: Number(sCadence.value||60), status:'ready' });
+    persist(); renderSources();
+  };
+  document.getElementById('addMap').onclick = ()=>{
+    state.sourceMappings.push({ sourceId:Number(mSid.value||0), entity:mEntity.value||'assets', sourceField:mSrc.value||'src', targetField:mTgt.value||'target' });
+    persist(); renderSources();
+  };
+}
+
+function testConn(id){
+  const src = state.sourceConnections.find(s=>s.id===id);
+  if (!src) return;
+  src.status = 'tested-ok';
+  state.syncLogs.push({ when:new Date().toLocaleString(), sourceId:id, status:'test-ok', ms:5, records:0 });
+  persist(); renderSources();
+}
+function syncNow(id){
+  const t0 = performance.now();
+  const src = state.sourceConnections.find(s=>s.id===id);
+  if (!src) return;
+  src.status = 'sync-success';
+  state.syncLogs.push({ when:new Date().toLocaleString(), sourceId:id, status:'success', ms:Math.round(performance.now()-t0)+20, records:state.assets.length });
+  persist(); renderSources(); renderDashboard();
+}
+
+function persist(){ localStorage.setItem('scada_single_file_state', JSON.stringify(state)); }
+function restore(){
+  try {
+    const raw = localStorage.getItem('scada_single_file_state');
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    Object.assign(state, saved);
+  } catch {}
+}
+
+restore();
+buildTabs();
+renderDashboard();
+renderAssets();
+renderProjects();
+renderScenarios();
+renderRoadmap();
+renderSources();
+</script>
+</body>
+</html>

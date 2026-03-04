@@ -17,6 +17,16 @@ FastAPI + Jinja2 + HTMX planning system for SCADA capital planning. This is **pl
   - SQLReadOnlyConnector.
   - GenericRESTConnector skeleton + mapping examples.
 
+
+## Single-file local run (no Python required)
+You can open the standalone demo directly:
+```bash
+xdg-open simple_scada_tool.html
+```
+(or double-click the file on Windows/macOS).
+
+This file is self-contained and runs via `file://` for quick local evaluation of asset registry, scoring, roadmap/scenario behavior, and source connection mock workflows.
+
 ## Local setup (SQLite)
 ```bash
 python -m venv .venv

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Scenario Builder</h2>
+<form method="post" action="/scenarios">
+<input name="name" placeholder="custom scenario name" required />
+<input name="budget_cap" type="number" value="500000" />
+<input name="staffing_cap" type="number" value="8" />
+<button>Create Scenario</button>
+</form>
+<table>
+<tr><th>Scenario</th><th>Selected Projects</th><th>Total Cost</th></tr>
+{% for c in comparison %}
+<tr><td>{{c.scenario.name}}</td><td>{{c.count}}</td><td>{{c.cost}}</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

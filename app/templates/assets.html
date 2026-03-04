@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Asset Registry</h2>
+<form hx-get="/assets" hx-target="#asset-table" hx-push-url="true">
+  <input name="q" value="{{ q }}" placeholder="Search asset type" />
+  <button>Search</button>
+</form>
+<div id="asset-table">
+<table>
+<tr><th>ID</th><th>Type</th><th>Status</th><th>Condition</th><th>Risk</th></tr>
+{% for row in assets %}
+<tr><td>{{ row.obj.id }}</td><td>{{ row.obj.asset_type }}</td><td>{{ row.obj.status }}</td><td>{{ row.obj.condition_score }}</td><td>{{ row.risk }}</td></tr>
+{% endfor %}
+</table>
+</div>
+<div id="map" style="height: 300px;"></div>
+<script>
+const map = L.map('map').setView([39.5, -98.35], 3);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+{% for row in assets %}
+{% if row.obj.lat and row.obj.lon %}
+L.marker([{{row.obj.lat}}, {{row.obj.lon}}]).addTo(map).bindPopup("{{ row.obj.asset_type }}");
+{% endif %}
+{% endfor %}
+</script>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Admin</h2>
+<p>Users / roles and scoring defaults placeholder.</p>
+<table><tr><th>User</th><th>Role</th></tr>{% for u in users %}<tr><td>{{u.username}}</td><td>{{u.role}}</td></tr>{% endfor %}</table>
+{% endblock %}

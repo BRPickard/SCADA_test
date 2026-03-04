@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Project Portfolio</h2>
+<table>
+<tr><th>ID</th><th>Name</th><th>Cost</th><th>Dependencies</th><th>Score</th></tr>
+{% for p in projects %}
+<tr><td>{{p.obj.id}}</td><td>{{p.obj.name}}</td><td>{{p.obj.total_cost}}</td><td>{{p.obj.dependencies}}</td><td>{{p.score}}</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,11 @@
+component_type_normalized,service_interval_days,service_interval_months,maintenance_basis,maintenance_tasks,inspection_frequency,calibration_frequency,technician_type,downtime_required
+PLC,180,6,time_based,"inspect I/O, verify backups",semi_annual,annual,controls_technician,low
+UPS,90,3,time_based,"battery test, visual inspection",quarterly,annual,electrical_technician,medium
+Radio,180,6,time_based,"antenna inspection, firmware check",semi_annual,annual,radio_technician,low
+Router,180,6,time_based,"config backup, firmware review",semi_annual,annual,network_engineer,low
+Network Switch,180,6,time_based,"port health check, config backup",semi_annual,annual,network_engineer,low
+Server,90,3,time_based,"patching, backup validation",quarterly,annual,systems_admin,medium
+Flow Monitor,365,12,time_based,"sensor cleaning, reading validation",annual,annual,instrumentation_tech,medium
+Pressure Recorder,180,6,time_based,"sensor drift inspection",semi_annual,semi_annual,instrumentation_tech,medium
+Chart Recorder,180,6,time_based,"paper/consumable refresh",semi_annual,semi_annual,instrumentation_tech,low
+DAC Module,180,6,time_based,"channel calibration check",semi_annual,annual,controls_technician,low
